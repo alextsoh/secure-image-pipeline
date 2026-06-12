@@ -39,5 +39,26 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           # 'digest' output is the immutable reference we sign/scan,
           # not the mutable 'latest' tag
-          
+
           provenance: true
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+ 
+      - name: Upload SBOM as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.spdx.json
+ 
+      # --- Step 2: Scan the SBOM with Grype ---
+      - name: Scan for vulnerabilities
+        uses: anchore/scan-action@v4
+        with:
+          sbom: sbom.spdx.json
+          fail-build: true        # fails the pipeline on critical findings
+          severity-cutoff: critical
