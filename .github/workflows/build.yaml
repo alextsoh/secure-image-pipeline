@@ -64,13 +64,13 @@ jobs:
           sbom: sbom.spdx.json
           fail-build: true
           severity-cutoff: critical
-          output-format: sarif
-          output-file: results.sarif
+          output-format: table    # <--- Forces Grype to make a clean text grid
+          output-file: vulnerability-report.txt
           
       # --- Step 3: Upload the Report as a normal file (Free & Bulletproof) ---
-      - name: Upload vulnerability report file
+      - name: Upload readable report
         uses: actions/upload-artifact@v4
-        if: always()        # Ensures it uploads even if the pipeline fails
+        if: always()              # Ensures it uploads even when the scan fails!
         with:
-          name: vulnerability-report
-          path: results.sarif
+          name: readable-vulnerability-report
+          path: vulnerability-report.txt
