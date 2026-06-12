@@ -62,3 +62,5 @@ jobs:
           sbom: sbom.spdx.json
           fail-build: true        # fails the pipeline on critical findings
           severity-cutoff: critical
+          output-format: sarif    
+          output-file: results.sarif
