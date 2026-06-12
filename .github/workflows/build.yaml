@@ -12,6 +12,7 @@ permissions:
   contents: read
   packages: write   # needed to push to GHCR
   id-token: write   # needed for Cosign keyless signing (OIDC)
+  security-events: write
  
 jobs:
   build-sign-attest:
@@ -58,16 +59,18 @@ jobs:
       # --- Step 2: Scan the SBOM with Grype ---
       - name: Scan for vulnerabilities
         uses: anchore/scan-action@v7.4.0
+        id: scan
         with:
           sbom: sbom.spdx.json
-          fail-build: true        # fails the pipeline on critical findings
+          fail-build: true
           severity-cutoff: critical
-          output-format: sarif    
+          output-format: sarif
           output-file: results.sarif
-
-
-      - name: Upload vulnerability report
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()    
-        with:          
-          sarif_file: results.sarif
+          
+      # --- Step 3: Upload the Report as a normal file (Free & Bulletproof) ---
+      - name: Upload vulnerability report file
+        uses: actions/upload-artifact@v4
+        if: always()        # Ensures it uploads even if the pipeline fails
+        with:
+          name: vulnerability-report
+          path: results.sarif
