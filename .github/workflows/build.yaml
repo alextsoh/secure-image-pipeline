@@ -37,4 +37,4 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           # 'digest' output is the immutable reference we sign/scan,
           # not the mutable 'latest' tag
-          provenance: false
+          provenance: true
