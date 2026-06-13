@@ -77,8 +77,10 @@ jobs:
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
+        if: always()   
 
       - name: Sign image with Cosign
+        if: always()   
         run: |
           cosign sign --yes \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
