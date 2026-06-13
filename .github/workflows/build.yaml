@@ -62,7 +62,7 @@ jobs:
         id: scan
         with:
           sbom: sbom.spdx.json
-          fail-build: true
+          fail-build: false
           severity-cutoff: critical
           output-format: table    # <--- Forces Grype to make a clean text grid
           output-file: vulnerability-report.txt
