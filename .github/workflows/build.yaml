@@ -41,7 +41,7 @@ jobs:
           # 'digest' output is the immutable reference we sign/scan,
           # not the mutable 'latest' tag
 
-          provenance: true
+          provenance: false
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
@@ -79,7 +79,7 @@ jobs:
         uses: sigstore/cosign-installer@v3
         if: always()   
 
-      - name: Sign image with Cosign
+      - name: Sign image with Cosign  #OIDC IMAGE SHA256 VERRIFICATION 
         if: always()   
         run: |
           cosign sign --yes \
