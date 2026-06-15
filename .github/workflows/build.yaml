@@ -11,8 +11,8 @@ env:
 
 permissions:
   contents: read
-  packages: write   # needed to push to GHCR
-  id-token: write   # needed for Cosign keyless signing (OIDC)
+  packages: write
+  id-token: write
   security-events: write
 
 jobs:
@@ -21,6 +21,7 @@ jobs:
 
     outputs:
       digest: ${{ steps.build.outputs.digest }}
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -42,8 +43,6 @@ jobs:
           context: .
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          # 'digest' output is the immutable reference we sign/scan,
-          # not the mutable 'latest' tag
           provenance: false
 
       - name: Generate SBOM
@@ -53,13 +52,13 @@ jobs:
           format: spdx-json
           output-file: sbom.spdx.json
 
-      - name: Upload SBOM as workflow artifact
+      - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
         with:
           name: sbom
           path: sbom.spdx.json
 
-      - name: Scan for vulnerabilities (table report)
+      - name: Scan for vulnerabilities (table)
         uses: anchore/scan-action@v7.4.0
         id: scan
         with:
@@ -69,7 +68,7 @@ jobs:
           output-format: table
           output-file: vulnerability-report.txt
 
-      - name: Scan for vulnerabilities (JSON for dashboard)
+      - name: Scan for vulnerabilities (JSON)
         uses: anchore/scan-action@v7.4.0
         id: scan-json
         with:
@@ -79,11 +78,11 @@ jobs:
           output-format: json
           output-file: vulnerability-report.json
 
-      - name: Upload readable report
+      - name: Upload vulnerability report artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: readable-vulnerability-report
+          name: vulnerability-report
           path: vulnerability-report.txt
 
       - name: Install Cosign
@@ -101,29 +100,49 @@ jobs:
         if: always()
         env:
           SIGN_OUTCOME: ${{ steps.sign.outcome }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          SBOM_B64=$(base64 -w0 sbom.spdx.json 2>/dev/null || base64 sbom.spdx.json)
-          VULN_TXT_B64=$(base64 -w0 vulnerability-report.txt 2>/dev/null || base64 vulnerability-report.txt || echo "")
-          VULN_JSON_B64=$(base64 -w0 vulnerability-report.json 2>/dev/null || base64 vulnerability-report.json || echo "")
+          python3 << 'PYEOF'
+          import json, os, subprocess, sys
 
-          SIGNED="false"
-          [ "$SIGN_OUTCOME" = "success" ] && SIGNED="true"
+          def b64(path):
+              r = subprocess.run(['base64', '-w0', path], capture_output=True, text=True)
+              return r.stdout.strip() if r.returncode == 0 else ''
 
-          curl -fsSL -X POST "${{ env.DASHBOARD_URL }}/api/webhook" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"run_id\":              \"${{ github.run_id }}\",
-              \"run_url\":             \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\",
-              \"repository\":          \"${{ github.repository }}\",
-              \"commit\":              \"${{ github.sha }}\",
-              \"branch\":              \"${{ github.ref_name }}\",
-              \"image_digest\":        \"${{ steps.build.outputs.digest }}\",
-              \"signed\":              ${SIGNED},
-              \"sign_status\":         \"${SIGN_OUTCOME}\",
-              \"sbom\":                \"${SBOM_B64}\",
-              \"vulnerability_report\": \"${VULN_TXT_B64}\",
-              \"vulnerability_json\":  \"${VULN_JSON_B64}\"
-            }"
+          payload = {
+              'run_id':               os.environ['RUN_ID'],
+              'run_url':              os.environ['RUN_URL'],
+              'repository':           os.environ['REPOSITORY'],
+              'commit':               os.environ['COMMIT'],
+              'branch':               os.environ['BRANCH'],
+              'image_digest':         os.environ['IMAGE_DIGEST'],
+              'signed':               os.environ.get('SIGN_OUTCOME') == 'success',
+              'sign_status':          os.environ.get('SIGN_OUTCOME', ''),
+              'sbom':                 b64('sbom.spdx.json'),
+              'vulnerability_report': b64('vulnerability-report.txt'),
+              'vulnerability_json':   b64('vulnerability-report.json'),
+          }
+
+          with open('/tmp/dashboard_payload.json', 'w') as f:
+              json.dump(payload, f)
+
+          r = subprocess.run([
+              'curl', '-fsSL', '-X', 'POST',
+              f"{os.environ['DASHBOARD_URL']}/api/webhook",
+              '-H', 'Content-Type: application/json',
+              '--data', '@/tmp/dashboard_payload.json',
+          ], capture_output=True, text=True)
+
+          print(r.stdout)
+          if r.returncode != 0:
+              print(r.stderr, file=sys.stderr)
+              sys.exit(r.returncode)
+          PYEOF
 
 
   provenance:
