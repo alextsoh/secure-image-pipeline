@@ -3,6 +3,8 @@ name: Build
 on:
   push:
     branches: [main]
+env:
+  DASHBOARD_URL: https://7083ee5bfd9c8632-94-70-215-151.serveousercontent.com
 
 permissions:
   contents: read
