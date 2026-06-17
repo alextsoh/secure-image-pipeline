@@ -4,8 +4,7 @@ on:
   push:
     branches: [main]
 env:
-  DASHBOARD_URL: https://7083ee5bfd9c8632-94-70-215-151.serveousercontent.com
-
+  DASHBOARD_URL: https://ab0e5df8b1a96b58-94-70-215-151.serveousercontent.com #serveo url for localhost reverse proxy for demo
 permissions:
   contents: read
   packages: write
