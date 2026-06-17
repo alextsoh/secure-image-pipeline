@@ -4,149 +4,44 @@ on:
   push:
     branches: [main]
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-  DASHBOARD_URL: https://7083ee5bfd9c8632-94-70-215-151.serveousercontent.com
-
 permissions:
   contents: read
   packages: write
   id-token: write
-  security-events: write
 
 jobs:
-  build-sign-attest:
+  build:
     runs-on: ubuntu-latest
-
     outputs:
       digest: ${{ steps.build.outputs.digest }}
 
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Build and push image
+      - name: Build and push
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          tags: ghcr.io/${{ github.repository }}:latest
           provenance: false
 
-      - name: Generate SBOM
-        uses: anchore/sbom-action@v0
+      - uses: alextsoh/securepipe-action@v1
         with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
-          format: spdx-json
-          output-file: sbom.spdx.json
-
-      - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom
-          path: sbom.spdx.json
-
-      - name: Scan for vulnerabilities (table)
-        uses: anchore/scan-action@v7.4.0
-        id: scan
-        with:
-          sbom: sbom.spdx.json
-          fail-build: false
-          severity-cutoff: critical
-          output-format: table
-          output-file: vulnerability-report.txt
-
-      - name: Scan for vulnerabilities (JSON)
-        uses: anchore/scan-action@v7.4.0
-        id: scan-json
-        with:
-          sbom: sbom.spdx.json
-          fail-build: false
-          severity-cutoff: critical
-          output-format: json
-          output-file: vulnerability-report.json
-
-      - name: Upload vulnerability report artifact
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: vulnerability-report
-          path: vulnerability-report.txt
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
-        if: always()
-
-      - name: Sign image with Cosign
-        id: sign
-        if: always()
-        run: |
-          cosign sign --yes \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
-
-      - name: Notify dashboard
-        if: always()
-        env:
-          SIGN_OUTCOME: ${{ steps.sign.outcome }}
-          RUN_ID: ${{ github.run_id }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          REPOSITORY: ${{ github.repository }}
-          COMMIT: ${{ github.sha }}
-          BRANCH: ${{ github.ref_name }}
-          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
-        run: |
-          python3 << 'PYEOF'
-          import json, os, subprocess, sys
-
-          def b64(path):
-              r = subprocess.run(['base64', '-w0', path], capture_output=True, text=True)
-              return r.stdout.strip() if r.returncode == 0 else ''
-
-          payload = {
-              'run_id':               os.environ['RUN_ID'],
-              'run_url':              os.environ['RUN_URL'],
-              'repository':           os.environ['REPOSITORY'],
-              'commit':               os.environ['COMMIT'],
-              'branch':               os.environ['BRANCH'],
-              'image_digest':         os.environ['IMAGE_DIGEST'],
-              'signed':               os.environ.get('SIGN_OUTCOME') == 'success',
-              'sign_status':          os.environ.get('SIGN_OUTCOME', ''),
-              'sbom':                 b64('sbom.spdx.json'),
-              'vulnerability_report': b64('vulnerability-report.txt'),
-              'vulnerability_json':   b64('vulnerability-report.json'),
-          }
-
-          with open('/tmp/dashboard_payload.json', 'w') as f:
-              json.dump(payload, f)
-
-          r = subprocess.run([
-              'curl', '-fsSL', '-X', 'POST',
-              f"{os.environ['DASHBOARD_URL']}/api/webhook",
-              '-H', 'Content-Type: application/json',
-              '--data', '@/tmp/dashboard_payload.json',
-          ], capture_output=True, text=True)
-
-          print(r.stdout)
-          if r.returncode != 0:
-              print(r.stderr, file=sys.stderr)
-              sys.exit(r.returncode)
-          PYEOF
-
+          image: ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}
+          dashboard-url: ${{ vars.DASHBOARD_URL }}
 
   provenance:
-    needs: [build-sign-attest]
+    needs: [build]
     permissions:
       actions: read
       id-token: write
@@ -154,7 +49,7 @@ jobs:
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/${{ github.repository }}
-      digest: ${{ needs.build-sign-attest.outputs.digest }}
+      digest: ${{ needs.build.outputs.digest }}
       registry-username: ${{ github.actor }}
     secrets:
       registry-password: ${{ secrets.GITHUB_TOKEN }}
