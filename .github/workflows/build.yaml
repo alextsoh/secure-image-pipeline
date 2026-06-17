@@ -37,7 +37,7 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:latest
           provenance: false
 
-      - uses: alextsoh/secure-pipeline-action@06c1682bad72c2ad0b6e0983683afc1bfef98c59
+      - uses: alextsoh/secure-pipeline-action@921ba58d6d49059026a78d161f51a549539545d8
         with:
           image: ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}
           dashboard-url: ${{ env.DASHBOARD_URL }}
