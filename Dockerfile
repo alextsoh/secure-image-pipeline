@@ -14,8 +14,6 @@ RUN npm ci --omit=dev
 #   spring-beans 5.3.17 -> CVE-2022-22965 (Spring4Shell)              [KEV]
 RUN wget -q -O /usr/src/app/log4j-core-2.14.1.jar \
       https://repo1.maven.org/maven2/org/apache/logging/log4j/log4j-core/2.14.1/log4j-core-2.14.1.jar && \
-    wget -q -O /usr/src/app/spring-beans-5.3.17.jar \
-      https://repo1.maven.org/maven2/org/springframework/spring-beans/5.3.17/spring-beans-5.3.17.jar
       
 # ---------------------------------------------------------------------------
 
