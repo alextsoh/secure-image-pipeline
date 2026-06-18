@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
 env:
-  DASHBOARD_URL: https://02cf1269bbec00.lhr.life #url for localhost reverse proxy for demo
+  DASHBOARD_URL: https://3a9fd0718a865e.lhr.life #url for localhost reverse proxy for demo
 
 permissions:
   contents: read
@@ -52,7 +52,7 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
           provenance: false
 
-      - uses: alextsoh/secure-pipeline-action@<sha>
+      - uses: alextsoh/secure-pipeline-action@290239de7acb3f24225184a1272b867ffc5a462b
         with:
           image: ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}
           tags: ${{ steps.version.outputs.tag }}        # ← hand the tag to the action
