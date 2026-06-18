@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
 env:
-  DASHBOARD_URL: https://3a9fd0718a865e.lhr.life #url for localhost reverse proxy for demo
+  DASHBOARD_URL: https://38ef3e01c273d4.lhr.life #url for localhost reverse proxy for demo
 
 permissions:
   contents: read
@@ -73,4 +73,3 @@ jobs:
       registry-username: ${{ github.actor }}
     secrets:
       registry-password: ${{ secrets.GITHUB_TOKEN }}
-      
